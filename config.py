@@ -21,8 +21,8 @@ PRICES = {
     "reseller": {"usd": 100, "egp": 5000, "name": "اشتراك الشركاء والموزعين (Partner)"}
 }
 
-# رابط تحميل الإكستنشن التحديث الأخير
-DOWNLOAD_LINK = os.getenv("DOWNLOAD_LINK", "https://t.me/LovaExtreme_Official")
+# رابط تحميل الإكستنشن وبوابة التحميل الرسمية بالموقع
+DOWNLOAD_LINK = os.getenv("DOWNLOAD_LINK", "https://www.lovaextreme.online")
 
 # إعدادات Supabase مع المفتاح الإداري service_role
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ysrjlpuozvemuzulsoxt.supabase.co")

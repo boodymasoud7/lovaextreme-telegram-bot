@@ -312,20 +312,26 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "download":
         if lang == 'en':
             text = (
-                "📥 **DOWNLOAD LOVAEXTREME EXTENSION v12.0:**\n\n"
-                "Download the latest official signed build v12.0 package via our official channel:\n"
+                "📥 **OFFICIAL DOWNLOAD PORTAL:**\n\n"
+                "You can validate your active serial key & download the extension zip package instantly via our official portal:\n"
                 f"🔗 {config.DOWNLOAD_LINK}\n\n"
-                "Requires an active license key to unlock unlimited AI features."
+                "Enter your key on the site to download your build."
             )
-            keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+            keyboard = [
+                [InlineKeyboardButton("🌐 Open Website Download Portal", url="https://www.lovaextreme.online")],
+                [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+            ]
         else:
             text = (
-                "📥 **تحميل إكستنشن LOVAEXTREME v12.0:**\n\n"
-                "يمكنك تنزيل الإصدار الأخير v12 والمشروح في دليل التثبيت عبر قناتنا الرسمية:\n"
+                "📥 **بوابة التحميل الرسمية للإكستنشن:**\n\n"
+                "يمكنك فحص وتفعيل السيريال الخاص بك وتنزيل ملف الإكستنشن فورياً عبر موقعنا الرسمي:\n"
                 f"🔗 {config.DOWNLOAD_LINK}\n\n"
-                "تذكر أنك ستحتاج إلى سيريال مفعل لتشغيل المميزات الأقوى!"
+                "أدخل السيريال في الموقع ليبدأ التحميل تلقائياً!"
             )
-            keyboard = [[InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="main_menu")]]
+            keyboard = [
+                [InlineKeyboardButton("🌐 فتح بوابة التحميل بالموقع", url="https://www.lovaextreme.online")],
+                [InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="main_menu")]
+            ]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         
     elif data == "faq":
