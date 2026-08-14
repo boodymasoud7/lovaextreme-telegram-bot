@@ -163,8 +163,8 @@ async def check_channel_subscription(context: ContextTypes.DEFAULT_TYPE, user_id
         member = await context.bot.get_chat_member(chat_id=chat, user_id=user_id)
         return member.status in ['creator', 'administrator', 'member']
     except Exception as e:
-        logging.warning(f"Channel subscription check error for user {user_id}: {e}")
-        return True # Fallback if bot is not channel admin yet
+        logging.warning(f"Channel subscription check failed for user {user_id}: {e}")
+        return False # Return False so non-members get prompted to join
 
 async def send_force_sub_message(message_obj, lang='ar'):
     channel_url = f"https://t.me/{config.REQUIRED_CHANNEL.lstrip('@')}"
