@@ -82,17 +82,19 @@ def generate_serial_supabase(days=30, plan_type="monthly", user_name="Customer")
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_name = update.effective_user.first_name
     welcome_text = (
+        f"🔥 **Welcome {user_name} to LOVAEXTREME Official Bot!** 🔥\n"
         f"🔥 **مرحباً بك يا {user_name} في بوت LOVAEXTREME الرسمي!** 🔥\n\n"
-        "الإكستنشن الأقوى لتطوير وتسرع العمل على منصة **Lovable** 🚀\n\n"
-        "اختر خياراً من القائمة أدناه:"
+        "⚡ Supercharge your workflow & build on **Lovable AI** without credit limits 🚀\n"
+        "⚡ الإكستنشن الأقوى لتطوير وتسرع العمل على منصة **Lovable** 🚀\n\n"
+        "Select an option below / اختر خياراً من القائمة أدناه:"
     )
     
     keyboard = [
-        [InlineKeyboardButton("⚡ طلب تجربة 15 دقيقة مجاناً", callback_data="claim_trial")],
-        [InlineKeyboardButton("🛒 شراء سيريال ترخيص", callback_data="buy")],
-        [InlineKeyboardButton("📥 تحميل التحديث الأخير", callback_data="download")],
-        [InlineKeyboardButton("❓ الأسئلة الشائعة وتفعيل السيريال", callback_data="faq")],
-        [InlineKeyboardButton("💬 التواصل مع الدعم الفني", callback_data="support")]
+        [InlineKeyboardButton("⚡ Claim Free 15-Min Trial | تجربة 15 دقيقة مجاناً", callback_data="claim_trial")],
+        [InlineKeyboardButton("🛒 Buy License Key | شراء سيريال ترخيص", callback_data="buy")],
+        [InlineKeyboardButton("📥 Download Extension | تحميل الإضافة", callback_data="download")],
+        [InlineKeyboardButton("❓ FAQ & Activation | الأسئلة الشائعة والتفعيل", callback_data="faq")],
+        [InlineKeyboardButton("💬 Contact Support | التواصل مع الدعم الفني", callback_data="support")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -118,14 +120,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if check_res and len(check_res) > 0:
             existing = check_res[0]
             text = (
+                "⚠️ **You have already claimed your 1-time 15-Minute Free Trial!**\n"
                 "⚠️ **لقد حصلت على التجربة المجانية (15 دقيقة) مسبقاً لهذا الحساب!**\n\n"
-                f"🔑 **السيريال التجريبي السابق:** `{existing.get('key')}`\n"
-                f"📌 **الحالة:** {existing.get('status')}\n\n"
+                f"🔑 **Previous Trial Key:** `{existing.get('key')}`\n"
+                f"📌 **Status:** {existing.get('status')}\n\n"
+                "💡 To continue enjoying unlimited access, please select a plan below.\n"
                 "💡 للاستمرار في الاستمتاع بجميع الخصائص يمكنك اختيار إحدى الباقات."
             )
             keyboard = [
-                [InlineKeyboardButton("🛒 شراء سيريال ترخيص", callback_data="buy")],
-                [InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu")]
+                [InlineKeyboardButton("🛒 Buy License Key | شراء سيريال ترخيص", callback_data="buy")],
+                [InlineKeyboardButton("🔙 Back to Main Menu | العودة للقائمة", callback_data="main_menu")]
             ]
             await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
             return
@@ -149,71 +153,76 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         gen_res = supabase_request("licenses", method="POST", data=payload)
         if gen_res:
             text = (
+                f"🎁 **Congratulations {user_name}! Your 15-Minute Trial Key is ready!**\n"
                 f"🎁 **مبروك يا {user_name}! تم توليد سيريال تجريبي لمدة 15 دقيقة بنجاح!**\n\n"
-                f"🔑 **السيريال:** `{key}`\n"
-                f"⏱️ **ينتهي في:** {exp_dt.strftime('%H:%M:%S UTC')}\n\n"
+                f"🔑 **Key / السيريال:** `{key}`\n"
+                f"⏱️ **Expires / ينتهي في:** {exp_dt.strftime('%H:%M:%S UTC')}\n\n"
+                "💡 Copy your key and activate it in the extension or Download Portal immediately!\n"
                 "💡 قم بنسخ السيريال وتفعيله في الإكستنشن أو في بوابة التحميل فوراً!"
             )
         else:
-            text = "❌ حدث خطأ أثناء إنشاء السيريال التجريبي. يرجى المحاولة لاحقاً."
+            text = "❌ Error generating trial key. Please try again later.\n❌ حدث خطأ أثناء إنشاء السيريال التجريبي."
 
         keyboard = [
-            [InlineKeyboardButton("📥 تحميل الإضافة", callback_data="download")],
-            [InlineKeyboardButton("🛒 شراء باقة كاملة", callback_data="buy")],
-            [InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu")]
+            [InlineKeyboardButton("📥 Download Extension | تحميل الإضافة", callback_data="download")],
+            [InlineKeyboardButton("🛒 Buy Full Pass | شراء باقة كاملة", callback_data="buy")],
+            [InlineKeyboardButton("🔙 Main Menu | القائمة الرئيسية", callback_data="main_menu")]
         ]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
     elif data == "buy":
         text = (
-            "💳 **أسعار باقات سيريالات LOVAEXTREME:**\n\n"
-            f"🟢 **الباقة الشهرية (30 يوم):** ${config.PRICES['monthly']['usd']} / {config.PRICES['monthly']['egp']} EGP\n"
-            f"🟣 **باقة مدى الحياة (Lifetime):** ${config.PRICES['lifetime']['usd']} / {config.PRICES['lifetime']['egp']} EGP\n"
-            f"👑 **باقة الشركاء والموزعين (Partner):** ${config.PRICES['reseller']['usd']} / {config.PRICES['reseller']['egp']} EGP\n\n"
-            "📌 **وسائل الدفع المتاحة:**\n"
-            f"📱 فودافون كاش / إنستا باي: `{config.PAYMENT_INFO['VODAFONE_CASH']}`\n"
-            f"🌐 Binance / USDT: `{config.PAYMENT_INFO['BINANCE_PAY']}`\n\n"
-            "بعد الدفع، اضغط على زر **إرسال إيصال الدفع** ليتم إرسال السيريال لك فوراً!"
+            "💳 **LOVAEXTREME License Plans & Prices / أسعار باقات سيريالات:**\n\n"
+            f"🟢 **Monthly Pass (30-Day / 30 يوم):** ${config.PRICES['monthly']['usd']} / {config.PRICES['monthly']['egp']} EGP\n"
+            f"🟣 **Lifetime Pass (مدى الحياة):** ${config.PRICES['lifetime']['usd']} / {config.PRICES['lifetime']['egp']} EGP\n"
+            f"👑 **Partner Structure (الشركاء والموزعين):** ${config.PRICES['reseller']['usd']} / {config.PRICES['reseller']['egp']} EGP\n\n"
+            "📌 **Accepted Payment Methods / وسائل الدفع المتاحة:**\n"
+            f"📱 Vodafone Cash / InstaPay: `{config.PAYMENT_INFO['VODAFONE_CASH']}`\n"
+            f"🌐 Binance / USDT (TRC20): `{config.PAYMENT_INFO['BINANCE_PAY']}`\n\n"
+            "After payment, click 'Send Payment Receipt' to receive your activation key instantly!\n"
+            "بعد الدفع، اضغط على زر 'إرسال إيصال الدفع' ليتم إرسال السيريال لك فوراً!"
         )
         keyboard = [
-            [InlineKeyboardButton("📤 إرسال إيصال الدفع للأدمن", callback_data="send_receipt")],
-            [InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu")]
+            [InlineKeyboardButton("📤 Send Payment Receipt | إرسال إيصال الدفع للأدمن", callback_data="send_receipt")],
+            [InlineKeyboardButton("🔙 Main Menu | العودة للقائمة الرئيسية", callback_data="main_menu")]
         ]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         
     elif data == "send_receipt":
         text = (
+            "📩 **Please send your payment screenshot & requested plan name in chat.**\n"
             "📩 **يرجى كتابة اسم الباقة المطلوبة مع إرفاق صورة الإيصال هنا في الشات.**\n\n"
-            f"أو يمكنك إرسال الإيصال مباشرة للأدمن: {config.PAYMENT_INFO['ADMIN_CONTACT']}"
+            f"Or contact Admin directly / أو تواصل مع الأدمن مباشرة: {config.PAYMENT_INFO['ADMIN_CONTACT']}"
         )
-        keyboard = [[InlineKeyboardButton("🔙 العودة", callback_data="buy")]]
+        keyboard = [[InlineKeyboardButton("🔙 Back | العودة", callback_data="buy")]]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         
     elif data == "download":
         text = (
-            "📥 **تحميل إكستنشن LOVAEXTREME:**\n\n"
+            "📥 **Download LOVAEXTREME Extension v12.0 / تحميل إكستنشن:**\n\n"
+            "Download the latest official signed build v12.0 via our official channel:\n"
             "يمكنك تنزيل الإصدار الأخير v12 والمشروح في دليل التثبيت عبر قناتنا الرسمية:\n"
             f"🔗 {config.DOWNLOAD_LINK}\n\n"
-            "تذكر أنك ستحتاج إلى سيريال مفعل لتشغيل المميزات الأقوى!"
+            "Requires an active license key to unlock unlimited AI features."
         )
-        keyboard = [[InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu")]]
+        keyboard = [[InlineKeyboardButton("🔙 Main Menu | القائمة الرئيسية", callback_data="main_menu")]]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         
     elif data == "faq":
         text = (
-            "📘 **دليل التثبيت والأسئلة الشائعة:**\n\n"
-            "1️⃣ قم بفك الضغط عن ملف الإكستنشن.\n"
-            "2️⃣ افتح `chrome://extensions` وفعّل Developer Mode.\n"
-            "3️⃣ اضغط على Load Unpacked واختر المجلد.\n"
-            "4️⃣ أدخل السيريال في نافذة الإكستنشن للبدء.\n\n"
-            "⚠️ السيريال يعمل على جهاز واحد فقط."
+            "📘 **Installation & Activation Guide / دليل التثبيت والتفعيل:**\n\n"
+            "1️⃣ Download & unzip the extension package.\n"
+            "2️⃣ Open `chrome://extensions` and enable Developer Mode.\n"
+            "3️⃣ Click 'Load Unpacked' and select the unzipped folder.\n"
+            "4️⃣ Enter your active key into the extension popup.\n\n"
+            "⚠️ Each license key is bound to 1 PC/Device."
         )
-        keyboard = [[InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu")]]
+        keyboard = [[InlineKeyboardButton("🔙 Main Menu | القائمة الرئيسية", callback_data="main_menu")]]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
     elif data == "support":
-        text = f"💬 للدعم الفني والتواصل المباشر مع إدارة LOVAEXTREME:\n👉 {config.PAYMENT_INFO['ADMIN_CONTACT']}"
-        keyboard = [[InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu")]]
+        text = f"💬 For direct human support / للدعم الفني والتواصل المباشر:\n👉 {config.PAYMENT_INFO['ADMIN_CONTACT']}"
+        keyboard = [[InlineKeyboardButton("🔙 Main Menu | القائمة الرئيسية", callback_data="main_menu")]]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         
     elif data == "main_menu":
