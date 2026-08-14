@@ -64,7 +64,9 @@ def generate_serial_supabase(days=30, plan_type="monthly", user_name="Customer")
         "expires_at": exp_str,
         "plan": plan_type,
         "user_name": user_name,
-        "device_id": None
+        "user_email": f"{user_name.lower().replace(' ', '_')}@lovaextreme.com",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "device_id": ""
     }
 
     res = supabase_request("licenses", method="POST", data=payload)
@@ -139,6 +141,8 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "expires_at": exp_str,
             "plan": "trial_15m",
             "user_name": tg_tag,
+            "user_email": f"{user_id}_trial@lovaextreme.com",
+            "created_at": datetime.now(timezone.utc).isoformat(),
             "device_id": ""
         }
         
@@ -285,6 +289,8 @@ async def admin_groupgen(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "expires_at": exp_str,
         "plan": plan_name,
         "user_name": name,
+        "user_email": "group@lovaextreme.com",
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "device_id": "",
         "max_devices": max_dev
     }
