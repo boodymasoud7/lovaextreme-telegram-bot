@@ -90,11 +90,33 @@ def generate_serial_supabase(days=30, plan_type="monthly", user_name="Customer")
 # Language Selection & Main Menus
 # ===========================================================================
 
+async def notify_admin(context: ContextTypes.DEFAULT_TYPE, text: str):
+    """Sends notification to all admin Telegram IDs."""
+    for admin_id in config.ADMIN_IDS:
+        try:
+            await context.bot.send_message(chat_id=admin_id, text=text, parse_mode="Markdown")
+        except Exception as e:
+            logging.error(f"Failed to send admin notification to {admin_id}: {e}")
+
+# Command /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Entry point: Displays language selection first for clean UX."""
     user_id = update.effective_user.id
     user_name = update.effective_user.first_name or "User"
+    username = update.effective_user.username
+    user_handle = f"@{username}" if username else "بدون يوزر"
     
+    # Notify Admin about new user interaction
+    if update.message:
+        admin_note = (
+            f"🔔 **إشعار مستخدم جديد على البوت!**\n\n"
+            f"👤 **الاسم:** {user_name}\n"
+            f"🏷️ **اليوزر:** {user_handle}\n"
+            f"🆔 **Telegram ID:** `{user_id}`\n"
+            f"⏱️ **الوقت:** {datetime.now(timezone.utc).strftime('%H:%M:%S %Y-%m-%d UTC')}"
+        )
+        await notify_admin(context, admin_note)
+
     welcome_text = (
         f"🌐 **Welcome {user_name} to LOVAEXTREME!**\n"
         f"🌐 **مرحباً بك يا {user_name} في LOVAEXTREME!**\n\n"
@@ -301,6 +323,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         gen_res = supabase_request("licenses", method="POST", data=payload)
         if gen_res:
+            # Notify Admin about trial creation
+            username_tag = f"@{query.from_user.username}" if query.from_user.username else "بدون يوزر"
+            trial_note = (
+                f"🎁 **إشعار إصدار سيريال تجريبي جديد!**\n\n"
+                f"👤 **المستخدم:** {user_name} ({username_tag})\n"
+                f"🆔 **Telegram ID:** `{user_id}`\n"
+                f"🔑 **السيريال:** `{key}`\n"
+                f"⏱️ **المدة:** 15 دقيقة (ينتهي: {exp_dt.strftime('%H:%M:%S UTC')})"
+            )
+            await notify_admin(context, trial_note)
+
             if lang == 'en':
                 text = (
                     f"🎁 **Congratulations {user_name}! Your 15-Minute Trial Key is ready!**\n\n"
