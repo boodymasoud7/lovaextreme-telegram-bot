@@ -23,6 +23,15 @@ logging.basicConfig(
     level=logging.INFO
 )
 
+# User language preference storage (in memory per chat)
+USER_LANGUAGES = {}
+
+def get_user_lang(user_id):
+    return USER_LANGUAGES.get(user_id, 'en')
+
+def set_user_lang(user_id, lang):
+    USER_LANGUAGES[user_id] = lang
+
 # ===========================================================================
 # Supabase REST API Helpers
 # ===========================================================================
@@ -46,6 +55,9 @@ def supabase_request(endpoint, method="GET", data=None):
     except Exception as e:
         logging.error(f"Supabase request error [{method} {endpoint}]: {e}")
         return None
+
+def is_admin(user_id):
+    return user_id in config.ADMIN_IDS
 
 def generate_serial_supabase(days=30, plan_type="monthly", user_name="Customer"):
     key = f"LOVA-{uuid.uuid4().hex[:4].upper()}-{uuid.uuid4().hex[:4].upper()}-{uuid.uuid4().hex[:4].upper()}"
@@ -75,26 +87,26 @@ def generate_serial_supabase(days=30, plan_type="monthly", user_name="Customer")
     return None, None
 
 # ===========================================================================
-# Telegram Bot Handlers
+# Language Selection & Main Menus
 # ===========================================================================
 
-# Command /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_name = update.effective_user.first_name
+    """Entry point: Displays language selection first for clean UX."""
+    user_id = update.effective_user.id
+    user_name = update.effective_user.first_name or "User"
+    
     welcome_text = (
-        f"🔥 **Welcome {user_name} to LOVAEXTREME Official Bot!** 🔥\n"
-        f"🔥 **مرحباً بك يا {user_name} في بوت LOVAEXTREME الرسمي!** 🔥\n\n"
-        "⚡ Supercharge your workflow & build on **Lovable AI** without credit limits 🚀\n"
-        "⚡ الإكستنشن الأقوى لتطوير وتسرع العمل على منصة **Lovable** 🚀\n\n"
-        "Select an option below / اختر خياراً من القائمة أدناه:"
+        f"🌐 **Welcome {user_name} to LOVAEXTREME!**\n"
+        f"🌐 **مرحباً بك يا {user_name} في LOVAEXTREME!**\n\n"
+        "Please select your preferred language below:\n"
+        "يرجى اختيار لغتك المفضلة من القائمة أدناه:"
     )
     
     keyboard = [
-        [InlineKeyboardButton("⚡ Claim Free 15-Min Trial | تجربة 15 دقيقة مجاناً", callback_data="claim_trial")],
-        [InlineKeyboardButton("🛒 Buy License Key | شراء سيريال ترخيص", callback_data="buy")],
-        [InlineKeyboardButton("📥 Download Extension | تحميل الإضافة", callback_data="download")],
-        [InlineKeyboardButton("❓ FAQ & Activation | الأسئلة الشائعة والتفعيل", callback_data="faq")],
-        [InlineKeyboardButton("💬 Contact Support | التواصل مع الدعم الفني", callback_data="support")]
+        [
+            InlineKeyboardButton("🇺🇸 English", callback_data="lang_en"),
+            InlineKeyboardButton("🇪🇬 العربية", callback_data="lang_ar")
+        ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
@@ -103,34 +115,100 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.callback_query:
         await update.callback_query.message.edit_text(welcome_text, reply_markup=reply_markup, parse_mode="Markdown")
 
-# Handle Callback Buttons
+async def show_main_menu(query, lang, user_name):
+    """Displays localized ultra-professional main menu."""
+    if lang == 'en':
+        text = (
+            f"⚡ **Welcome {user_name} to LOVAEXTREME** ⚡\n\n"
+            "Supercharge your workflow on **Lovable AI** without credit throttling. Build fast, optimize prompts, and remove watermarks.\n\n"
+            "📌 **Please select an option below:**"
+        )
+        keyboard = [
+            [InlineKeyboardButton("⚡ Claim Free 15-Min Trial", callback_data="claim_trial")],
+            [InlineKeyboardButton("💳 Plans & Pricing", callback_data="buy")],
+            [InlineKeyboardButton("📥 Download Extension v12", callback_data="download")],
+            [InlineKeyboardButton("📘 Installation Guide & FAQ", callback_data="faq")],
+            [InlineKeyboardButton("💬 Human Support Queue", callback_data="support")],
+            [InlineKeyboardButton("🌐 Change Language / تغيير اللغة", callback_data="change_lang")]
+        ]
+    else:
+        text = (
+            f"⚡ **مرحباً بك يا {user_name} في LOVAEXTREME** ⚡\n\n"
+            "الإكستنشن الأقوى لتطوير وتسرع العمل على منصة **Lovable AI** بدون حدود للكريديت. أسرع 10 مرات في بناء المشاريع!\n\n"
+            "📌 **يرجى اختيار خيار من القائمة أدناه:**"
+        )
+        keyboard = [
+            [InlineKeyboardButton("⚡ طلب تجربة 15 دقيقة مجاناً", callback_data="claim_trial")],
+            [InlineKeyboardButton("💳 أسعار الباقات والشراء", callback_data="buy")],
+            [InlineKeyboardButton("📥 تحميل التحديث الأخير v12", callback_data="download")],
+            [InlineKeyboardButton("📘 دليل التثبيت والأسئلة الشائعة", callback_data="faq")],
+            [InlineKeyboardButton("💬 الدعم الفني المباشر", callback_data="support")],
+            [InlineKeyboardButton("🌐 Change Language / تغيير اللغة", callback_data="change_lang")]
+        ]
+    
+    await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
+
+# ===========================================================================
+# Callback Query Button Router
+# ===========================================================================
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     
+    user_id = query.from_user.id
+    user_name = query.from_user.first_name or "User"
     data = query.data
     
+    # Handle Language Selection
+    if data == "lang_en":
+        set_user_lang(user_id, 'en')
+        await show_main_menu(query, 'en', user_name)
+        return
+    elif data == "lang_ar":
+        set_user_lang(user_id, 'ar')
+        await show_main_menu(query, 'ar', user_name)
+        return
+    elif data == "change_lang":
+        await start(update, context)
+        return
+    elif data == "main_menu":
+        lang = get_user_lang(user_id)
+        await show_main_menu(query, lang, user_name)
+        return
+
+    lang = get_user_lang(user_id)
+
+    # 1. Claim Trial
     if data == "claim_trial":
-        user_id = query.from_user.id
-        user_name = query.from_user.first_name or "User"
         tg_tag = f"TG_{user_id}_TRIAL"
         
         # Check if user already claimed trial
         check_res = supabase_request(f"licenses?user_name=eq.{tg_tag}&limit=1")
         if check_res and len(check_res) > 0:
             existing = check_res[0]
-            text = (
-                "⚠️ **You have already claimed your 1-time 15-Minute Free Trial!**\n"
-                "⚠️ **لقد حصلت على التجربة المجانية (15 دقيقة) مسبقاً لهذا الحساب!**\n\n"
-                f"🔑 **Previous Trial Key:** `{existing.get('key')}`\n"
-                f"📌 **Status:** {existing.get('status')}\n\n"
-                "💡 To continue enjoying unlimited access, please select a plan below.\n"
-                "💡 للاستمرار في الاستمتاع بجميع الخصائص يمكنك اختيار إحدى الباقات."
-            )
-            keyboard = [
-                [InlineKeyboardButton("🛒 Buy License Key | شراء سيريال ترخيص", callback_data="buy")],
-                [InlineKeyboardButton("🔙 Back to Main Menu | العودة للقائمة", callback_data="main_menu")]
-            ]
+            if lang == 'en':
+                text = (
+                    "⚠️ **You have already claimed your 1-time 15-Minute Free Trial!**\n\n"
+                    f"🔑 **Previous Trial Key:** `{existing.get('key')}`\n"
+                    f"📌 **Status:** {existing.get('status')}\n\n"
+                    "💡 To continue enjoying unlimited access, please upgrade to a pass."
+                )
+                keyboard = [
+                    [InlineKeyboardButton("💳 View Pricing Plans", callback_data="buy")],
+                    [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+                ]
+            else:
+                text = (
+                    "⚠️ **لقد حصلت على التجربة المجانية (15 دقيقة) مسبقاً لهذا الحساب!**\n\n"
+                    f"🔑 **السيريال التجريبي السابق:** `{existing.get('key')}`\n"
+                    f"📌 **الحالة:** {existing.get('status')}\n\n"
+                    "💡 للاستمرار في الاستمتاع بجميع الخصائص يمكنك اختيار إحدى الباقات."
+                )
+                keyboard = [
+                    [InlineKeyboardButton("💳 عرض الباقات والشراء", callback_data="buy")],
+                    [InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu")]
+                ]
             await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
             return
 
@@ -152,127 +230,175 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         gen_res = supabase_request("licenses", method="POST", data=payload)
         if gen_res:
-            text = (
-                f"🎁 **Congratulations {user_name}! Your 15-Minute Trial Key is ready!**\n"
-                f"🎁 **مبروك يا {user_name}! تم توليد سيريال تجريبي لمدة 15 دقيقة بنجاح!**\n\n"
-                f"🔑 **Key / السيريال:** `{key}`\n"
-                f"⏱️ **Expires / ينتهي في:** {exp_dt.strftime('%H:%M:%S UTC')}\n\n"
-                "💡 Copy your key and activate it in the extension or Download Portal immediately!\n"
-                "💡 قم بنسخ السيريال وتفعيله في الإكستنشن أو في بوابة التحميل فوراً!"
-            )
+            if lang == 'en':
+                text = (
+                    f"🎁 **Congratulations {user_name}! Your 15-Minute Trial Key is ready!**\n\n"
+                    f"🔑 **Serial Key:** `{key}`\n"
+                    f"⏱️ **Expires At:** {exp_dt.strftime('%H:%M:%S UTC')}\n\n"
+                    "💡 Copy your key and paste it inside the extension popup or Download Portal to activate immediately!"
+                )
+                keyboard = [
+                    [InlineKeyboardButton("📥 Download Extension", callback_data="download")],
+                    [InlineKeyboardButton("💳 Upgrade to Full Pass", callback_data="buy")],
+                    [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+                ]
+            else:
+                text = (
+                    f"🎁 **مبروك يا {user_name}! تم توليد سيريال تجريبي لمدة 15 دقيقة بنجاح!**\n\n"
+                    f"🔑 **السيريال:** `{key}`\n"
+                    f"⏱️ **ينتهي في:** {exp_dt.strftime('%H:%M:%S UTC')}\n\n"
+                    "💡 قم بنسخ السيريال وتفعيله في نافذة الإكستنشن أو بوابة التحميل فوراً!"
+                )
+                keyboard = [
+                    [InlineKeyboardButton("📥 تحميل الإضافة", callback_data="download")],
+                    [InlineKeyboardButton("💳 شراء باقة كاملة", callback_data="buy")],
+                    [InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="main_menu")]
+                ]
         else:
-            text = "❌ Error generating trial key. Please try again later.\n❌ حدث خطأ أثناء إنشاء السيريال التجريبي."
+            text = "❌ Error generating trial key. Please try again later." if lang == 'en' else "❌ حدث خطأ أثناء إنشاء السيريال التجريبي. يرجى المحاولة لاحقاً."
+            keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
 
-        keyboard = [
-            [InlineKeyboardButton("📥 Download Extension | تحميل الإضافة", callback_data="download")],
-            [InlineKeyboardButton("🛒 Buy Full Pass | شراء باقة كاملة", callback_data="buy")],
-            [InlineKeyboardButton("🔙 Main Menu | القائمة الرئيسية", callback_data="main_menu")]
-        ]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
+    # 2. Buy / Plans
     elif data == "buy":
-        text = (
-            "💳 **LOVAEXTREME License Plans & Prices / أسعار باقات سيريالات:**\n\n"
-            f"🟢 **Monthly Pass (30-Day / 30 يوم):** ${config.PRICES['monthly']['usd']} / {config.PRICES['monthly']['egp']} EGP\n"
-            f"🟣 **Lifetime Pass (مدى الحياة):** ${config.PRICES['lifetime']['usd']} / {config.PRICES['lifetime']['egp']} EGP\n"
-            f"👑 **Partner Structure (الشركاء والموزعين):** ${config.PRICES['reseller']['usd']} / {config.PRICES['reseller']['egp']} EGP\n\n"
-            "📌 **Accepted Payment Methods / وسائل الدفع المتاحة:**\n"
-            f"📱 Vodafone Cash / InstaPay: `{config.PAYMENT_INFO['VODAFONE_CASH']}`\n"
-            f"🌐 Binance / USDT (TRC20): `{config.PAYMENT_INFO['BINANCE_PAY']}`\n\n"
-            "After payment, click 'Send Payment Receipt' to receive your activation key instantly!\n"
-            "بعد الدفع، اضغط على زر 'إرسال إيصال الدفع' ليتم إرسال السيريال لك فوراً!"
-        )
-        keyboard = [
-            [InlineKeyboardButton("📤 Send Payment Receipt | إرسال إيصال الدفع للأدمن", callback_data="send_receipt")],
-            [InlineKeyboardButton("🔙 Main Menu | العودة للقائمة الرئيسية", callback_data="main_menu")]
-        ]
+        if lang == 'en':
+            text = (
+                "💳 **LOVAEXTREME LICENSE PLANS & PRICING:**\n\n"
+                f"🟢 **Monthly Pass (30-Day):** ${config.PRICES['monthly']['usd']} / {config.PRICES['monthly']['egp']} EGP\n"
+                f"🟣 **Lifetime Pass (Unlimited):** ${config.PRICES['lifetime']['usd']} / {config.PRICES['lifetime']['egp']} EGP\n"
+                f"👑 **Partner Structure (Wholesale):** ${config.PRICES['reseller']['usd']} / {config.PRICES['reseller']['egp']} EGP\n\n"
+                "📌 **Accepted Payment Methods:**\n"
+                f"📱 Vodafone Cash / InstaPay: `{config.PAYMENT_INFO['VODAFONE_CASH']}`\n"
+                f"🌐 Binance / USDT (TRC20): `{config.PAYMENT_INFO['BINANCE_PAY']}`\n\n"
+                "After payment, click **Send Payment Receipt** to receive your activation key instantly!"
+            )
+            keyboard = [
+                [InlineKeyboardButton("📤 Send Payment Receipt", callback_data="send_receipt")],
+                [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="main_menu")]
+            ]
+        else:
+            text = (
+                "💳 **أسعار باقات سيريالات LOVAEXTREME:**\n\n"
+                f"🟢 **الباقة الشهرية (30 يوم):** ${config.PRICES['monthly']['usd']} / {config.PRICES['monthly']['egp']} EGP\n"
+                f"🟣 **باقة مدى الحياة (Lifetime):** ${config.PRICES['lifetime']['usd']} / {config.PRICES['lifetime']['egp']} EGP\n"
+                f"👑 **باقة الشركاء والموزعين (Partner):** ${config.PRICES['reseller']['usd']} / {config.PRICES['reseller']['egp']} EGP\n\n"
+                "📌 **وسائل الدفع المتاحة:**\n"
+                f"📱 فودافون كاش / إنستا باي: `{config.PAYMENT_INFO['VODAFONE_CASH']}`\n"
+                f"🌐 Binance / USDT (TRC20): `{config.PAYMENT_INFO['BINANCE_PAY']}`\n\n"
+                "بعد الدفع، اضغط على زر **إرسال إيصال الدفع** ليتم إرسال السيريال لك فوراً!"
+            )
+            keyboard = [
+                [InlineKeyboardButton("📤 إرسال إيصال الدفع للأدمن", callback_data="send_receipt")],
+                [InlineKeyboardButton("🔙 العودة للقائمة الرئيسية", callback_data="main_menu")]
+            ]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         
     elif data == "send_receipt":
-        text = (
-            "📩 **Please send your payment screenshot & requested plan name in chat.**\n"
-            "📩 **يرجى كتابة اسم الباقة المطلوبة مع إرفاق صورة الإيصال هنا في الشات.**\n\n"
-            f"Or contact Admin directly / أو تواصل مع الأدمن مباشرة: {config.PAYMENT_INFO['ADMIN_CONTACT']}"
-        )
-        keyboard = [[InlineKeyboardButton("🔙 Back | العودة", callback_data="buy")]]
+        if lang == 'en':
+            text = (
+                "📩 **Please send your payment screenshot & requested plan name here in chat.**\n\n"
+                f"Or contact Admin directly: {config.PAYMENT_INFO['ADMIN_CONTACT']}"
+            )
+            keyboard = [[InlineKeyboardButton("🔙 Back to Plans", callback_data="buy")]]
+        else:
+            text = (
+                "📩 **يرجى كتابة اسم الباقة المطلوبة مع إرفاق صورة الإيصال هنا في الشات.**\n\n"
+                f"أو يمكنك إرسال الإيصال مباشرة للأدمن: {config.PAYMENT_INFO['ADMIN_CONTACT']}"
+            )
+            keyboard = [[InlineKeyboardButton("🔙 العودة للباقات", callback_data="buy")]]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         
     elif data == "download":
-        text = (
-            "📥 **Download LOVAEXTREME Extension v12.0 / تحميل إكستنشن:**\n\n"
-            "Download the latest official signed build v12.0 via our official channel:\n"
-            "يمكنك تنزيل الإصدار الأخير v12 والمشروح في دليل التثبيت عبر قناتنا الرسمية:\n"
-            f"🔗 {config.DOWNLOAD_LINK}\n\n"
-            "Requires an active license key to unlock unlimited AI features."
-        )
-        keyboard = [[InlineKeyboardButton("🔙 Main Menu | القائمة الرئيسية", callback_data="main_menu")]]
+        if lang == 'en':
+            text = (
+                "📥 **DOWNLOAD LOVAEXTREME EXTENSION v12.0:**\n\n"
+                "Download the latest official signed build v12.0 package via our official channel:\n"
+                f"🔗 {config.DOWNLOAD_LINK}\n\n"
+                "Requires an active license key to unlock unlimited AI features."
+            )
+            keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+        else:
+            text = (
+                "📥 **تحميل إكستنشن LOVAEXTREME v12.0:**\n\n"
+                "يمكنك تنزيل الإصدار الأخير v12 والمشروح في دليل التثبيت عبر قناتنا الرسمية:\n"
+                f"🔗 {config.DOWNLOAD_LINK}\n\n"
+                "تذكر أنك ستحتاج إلى سيريال مفعل لتشغيل المميزات الأقوى!"
+            )
+            keyboard = [[InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="main_menu")]]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
         
     elif data == "faq":
-        text = (
-            "📘 **Installation & Activation Guide / دليل التثبيت والتفعيل:**\n\n"
-            "1️⃣ Download & unzip the extension package.\n"
-            "2️⃣ Open `chrome://extensions` and enable Developer Mode.\n"
-            "3️⃣ Click 'Load Unpacked' and select the unzipped folder.\n"
-            "4️⃣ Enter your active key into the extension popup.\n\n"
-            "⚠️ Each license key is bound to 1 PC/Device."
-        )
-        keyboard = [[InlineKeyboardButton("🔙 Main Menu | القائمة الرئيسية", callback_data="main_menu")]]
+        if lang == 'en':
+            text = (
+                "📘 **INSTALLATION & ACTIVATION GUIDE:**\n\n"
+                "1️⃣ Download & unzip the extension package.\n"
+                "2️⃣ Open `chrome://extensions` and enable Developer Mode.\n"
+                "3️⃣ Click 'Load Unpacked' and select the unzipped folder.\n"
+                "4️⃣ Enter your active key into the extension popup.\n\n"
+                "⚠️ Each license key is bound to 1 PC/Device."
+            )
+            keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+        else:
+            text = (
+                "📘 **دليل التثبيت والأسئلة الشائعة:**\n\n"
+                "1️⃣ قم بفك الضغط عن ملف الإكستنشن.\n"
+                "2️⃣ افتح `chrome://extensions` وفعّل Developer Mode.\n"
+                "3️⃣ اضغط على Load Unpacked واختر المجلد.\n"
+                "4️⃣ أدخل السيريال في نافذة الإكستنشن للبدء.\n\n"
+                "⚠️ السيريال يعمل على جهاز واحد فقط."
+            )
+            keyboard = [[InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="main_menu")]]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
     elif data == "support":
-        text = f"💬 For direct human support / للدعم الفني والتواصل المباشر:\n👉 {config.PAYMENT_INFO['ADMIN_CONTACT']}"
-        keyboard = [[InlineKeyboardButton("🔙 Main Menu | القائمة الرئيسية", callback_data="main_menu")]]
+        if lang == 'en':
+            text = f"💬 For direct human support & assistance:\n👉 {config.PAYMENT_INFO['ADMIN_CONTACT']}"
+            keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+        else:
+            text = f"💬 للدعم الفني والتواصل المباشر مع إدارة LOVAEXTREME:\n👉 {config.PAYMENT_INFO['ADMIN_CONTACT']}"
+            keyboard = [[InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="main_menu")]]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
-        
-    elif data == "main_menu":
-        await start(update, context)
 
 # ===========================================================================
-# Admin Commands (Supabase Connected)
+# Admin Commands Handlers
 # ===========================================================================
 
-def is_admin(user_id):
-    return user_id in config.ADMIN_IDS
-
-# /gen <days> [plan_name]
 async def admin_gen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_admin(user_id):
-        await update.message.reply_text("❌ هذا الأمر مخصص للأدمن فقط.")
+        await update.message.reply_text("❌ Admin command only.")
         return
 
     days = 30
-    plan = "monthly"
+    plan_type = "monthly"
+    name = "Customer"
+
     if context.args:
-        arg0 = context.args[0].lower()
-        if arg0 in ["lifetime", "forever", "0"]:
-            days = 0
-            plan = "lifetime"
-        elif arg0.isdigit():
-            days = int(arg0)
-        
+        if context.args[0].isdigit():
+            days = int(context.args[0])
+            plan_type = f"custom_{days}d" if days != 0 else "lifetime"
         if len(context.args) > 1:
-            plan = context.args[1]
+            name = " ".join(context.args[1:])
 
-    key, exp = generate_serial_supabase(days=days, plan_type=plan)
-    if not key:
-        await update.message.reply_text("❌ حدث خطأ أثناء إنشاء السيريال في Supabase.")
-        return
+    key, exp_display = generate_serial_supabase(days=days, plan_type=plan_type, user_name=name)
+    if key:
+        msg = (
+            f"✅ **Serial Key Generated Successfully!**\n\n"
+            f"🔑 **Key:** `{key}`\n"
+            f"👤 **User:** {name}\n"
+            f"📅 **Expires:** {exp_display}\n"
+            f"🏷️ **Plan:** {plan_type}"
+        )
+    else:
+        msg = "❌ Error generating serial key in Supabase."
 
-    msg = (
-        f"✅ **تم توليد سيريال جديد وحفظه في Supabase بنجاح!**\n\n"
-        f"🔑 **السيريال:** `{key}`\n"
-        f"📅 **تاريخ الانتهاء:** {exp}\n"
-        f"🏷️ **الباقة:** {plan}"
-    )
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-# /groupgen <hours> <max_devices> [name]
 async def admin_groupgen(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_admin(user_id):
-        await update.message.reply_text("❌ هذا الأمر مخصص للأدمن فقط.")
+        await update.message.reply_text("❌ Admin command only.")
         return
 
     hours = 2
@@ -306,28 +432,26 @@ async def admin_groupgen(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     res = supabase_request("licenses", method="POST", data=payload)
     if not res:
-        await update.message.reply_text("❌ حدث خطأ أثناء إنشاء السيريال الجماعي.")
+        await update.message.reply_text("❌ Error generating group key.")
         return
 
     msg = (
-        f"🚀 **تم إنشاء سيريال تجريبي جماعي (Live Demo / Group Trial)!**\n\n"
-        f"🔑 **السيريال:** `{key}`\n"
-        f"⏱️ **المدة:** {hours} ساعات (ينتهي: {exp_dt.strftime('%H:%M %d/%m/%Y UTC')})\n"
-        f"💻 **الحد الأقصى للأجهزة:** {max_dev} جهاز\n"
-        f"🏷️ **اسم المجموعة:** {name}\n\n"
-        f"💡 يمكنك مشاركة هذا السيريال الآن في القناة/المجموعة ليستمتع به الجميع في نفس الوقت!"
+        f"🚀 **Group Trial Serial Key Generated!**\n\n"
+        f"🔑 **Key:** `{key}`\n"
+        f"⏱️ **Duration:** {hours} hours (Expires: {exp_dt.strftime('%H:%M %d/%m/%Y UTC')})\n"
+        f"💻 **Max Devices:** {max_dev} Devices\n"
+        f"🏷️ **Group Name:** {name}"
     )
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-# /devices <key>
 async def admin_devices(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_admin(user_id):
-        await update.message.reply_text("❌ هذا الأمر مخصص للأدمن فقط.")
+        await update.message.reply_text("❌ Admin command only.")
         return
 
     if not context.args:
-        await update.message.reply_text("⚠️ يرجى كتابة السيريال بعد الأمر.\nمثال: `/devices GRP-XXXX-YYYY`", parse_mode="Markdown")
+        await update.message.reply_text("⚠️ Usage: `/devices GRP-XXXX-YYYY`", parse_mode="Markdown")
         return
 
     key = context.args[0].strip()
@@ -335,7 +459,7 @@ async def admin_devices(update: Update, context: ContextTypes.DEFAULT_TYPE):
     res = supabase_request(f"licenses?key=eq.{encoded_key}&limit=1")
 
     if not res or len(res) == 0:
-        await update.message.reply_text(f"❌ السيريال غير موجود: `{key}`", parse_mode="Markdown")
+        await update.message.reply_text(f"❌ Key not found: `{key}`", parse_mode="Markdown")
         return
 
     item = res[0]
@@ -350,33 +474,30 @@ async def admin_devices(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dev_list = [{"id": raw_dev}]
 
     msg = (
-        f"📊 **فحص أجهزة السيريال الجماعي:**\n\n"
-        f"🔑 **السيريال:** `{key}`\n"
-        f"💻 **الأجهزة النشطة حالياً:** {len(dev_list)} / {max_dev} جهاز\n"
-        f"📌 **الحالة:** {item.get('status')}\n\n"
+        f"📊 **Group Serial Devices Status:**\n\n"
+        f"🔑 **Key:** `{key}`\n"
+        f"💻 **Active Devices:** {len(dev_list)} / {max_dev}\n"
+        f"📌 **Status:** {item.get('status')}\n\n"
     )
 
     if dev_list:
-        msg += "📋 **قائمة معرّفات الأجهزة:**\n"
+        msg += "📋 **Device IDs:**\n"
         for idx, d in enumerate(dev_list[:20], 1):
             did = d.get('id') if isinstance(d, dict) else str(d)
             msg += f"{idx}. `{did[:15]}...`\n"
-        if len(dev_list) > 20:
-            msg += f"... بالإضافة إلى {len(dev_list) - 20} أجهزة أخرى."
     else:
-        msg += "ℹ️ لم يقم أي جهاز بالتسجيل حتى الآن."
+        msg += "ℹ️ No registered devices yet."
 
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-# /check <key>
 async def admin_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_admin(user_id):
-        await update.message.reply_text("❌ هذا الأمر مخصص للأدمن فقط.")
+        await update.message.reply_text("❌ Admin command only.")
         return
 
     if not context.args:
-        await update.message.reply_text("⚠️ يرجى كتابة السيريال بعد الأمر.\nمثال: `/check LOVA-XXXX-YYYY`", parse_mode="Markdown")
+        await update.message.reply_text("⚠️ Usage: `/check LOVA-XXXX-YYYY`", parse_mode="Markdown")
         return
 
     key = context.args[0].strip()
@@ -384,30 +505,29 @@ async def admin_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     res = supabase_request(f"licenses?key=eq.{encoded_key}&limit=1")
 
     if not res or len(res) == 0:
-        await update.message.reply_text(f"❌ السيريال غير موجود: `{key}`", parse_mode="Markdown")
+        await update.message.reply_text(f"❌ Key not found: `{key}`", parse_mode="Markdown")
         return
 
     item = res[0]
-    hwid = item.get('device_id') or 'غير مربط بجهاز حتى الآن (Free)'
+    hwid = item.get('device_id') or 'Unbound (Free)'
     msg = (
-        f"📋 **تفاصيل السيريال:**\n\n"
-        f"🔑 **السيريال:** `{item.get('key')}`\n"
-        f"📌 **الحالة:** {item.get('status')}\n"
-        f"📅 **الانتهاء:** {item.get('expires_at')}\n"
-        f"🏷️ **الباقة:** {item.get('plan')}\n"
-        f"💻 **الجهاز (HWID):** `{hwid}`"
+        f"📋 **Serial Key Details:**\n\n"
+        f"🔑 **Key:** `{item.get('key')}`\n"
+        f"📌 **Status:** {item.get('status')}\n"
+        f"📅 **Expires:** {item.get('expires_at')}\n"
+        f"🏷️ **Plan:** {item.get('plan')}\n"
+        f"💻 **HWID Device:** `{hwid}`"
     )
     await update.message.reply_text(msg, parse_mode="Markdown")
 
-# /reset <key>  (Resets device binding)
 async def admin_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_admin(user_id):
-        await update.message.reply_text("❌ هذا الأمر مخصص للأدمن فقط.")
+        await update.message.reply_text("❌ Admin command only.")
         return
 
     if not context.args:
-        await update.message.reply_text("⚠️ يرجى كتابة السيريال بعد الأمر.\nمثال: `/reset LOVA-XXXX-YYYY`", parse_mode="Markdown")
+        await update.message.reply_text("⚠️ Usage: `/reset LOVA-XXXX-YYYY`", parse_mode="Markdown")
         return
 
     key = context.args[0].strip()
@@ -415,19 +535,18 @@ async def admin_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     res = supabase_request(f"licenses?key=eq.{encoded_key}", method="PATCH", data={"device_id": ""})
 
     if res is not None:
-        await update.message.reply_text(f"✅ تم فك ربط الجهاز للسيريال: `{key}` بنجاح!\nيمكن للعميل الآن تفعيله على جهاز جديد.", parse_mode="Markdown")
+        await update.message.reply_text(f"✅ Unbound device for key: `{key}` successfully!", parse_mode="Markdown")
     else:
-        await update.message.reply_text(f"❌ فشل فك ربط السيريال: `{key}`", parse_mode="Markdown")
+        await update.message.reply_text(f"❌ Failed to unbind key: `{key}`", parse_mode="Markdown")
 
-# /revoke <key>  (Revokes key immediately)
 async def admin_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_admin(user_id):
-        await update.message.reply_text("❌ هذا الأمر مخصص للأدمن فقط.")
+        await update.message.reply_text("❌ Admin command only.")
         return
 
     if not context.args:
-        await update.message.reply_text("⚠️ يرجى كتابة السيريال بعد الأمر.\nمثال: `/revoke LOVA-XXXX-YYYY`", parse_mode="Markdown")
+        await update.message.reply_text("⚠️ Usage: `/revoke LOVA-XXXX-YYYY`", parse_mode="Markdown")
         return
 
     key = context.args[0].strip()
@@ -435,20 +554,19 @@ async def admin_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
     res = supabase_request(f"licenses?key=eq.{encoded_key}", method="PATCH", data={"status": "revoked"})
 
     if res is not None:
-        await update.message.reply_text(f"🛑 تم إلغاء وتجميد السيريال: `{key}` فوراً!", parse_mode="Markdown")
+        await update.message.reply_text(f"🛑 Key `{key}` revoked & frozen!", parse_mode="Markdown")
     else:
-        await update.message.reply_text(f"❌ فشل تجميد السيريال: `{key}`", parse_mode="Markdown")
+        await update.message.reply_text(f"❌ Failed to revoke key: `{key}`", parse_mode="Markdown")
 
-# /stats (Summary of licenses in Supabase)
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_admin(user_id):
-        await update.message.reply_text("❌ هذا الأمر مخصص للأدمن فقط.")
+        await update.message.reply_text("❌ Admin command only.")
         return
 
     res = supabase_request("licenses?select=status")
     if res is None:
-        await update.message.reply_text("❌ تعذر الاتصال بـ Supabase.")
+        await update.message.reply_text("❌ Supabase connection error.")
         return
 
     total = len(res)
@@ -456,10 +574,10 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     revoked = sum(1 for r in res if r.get('status') == 'revoked')
 
     msg = (
-        f"📊 **إحصائيات السيريالات في Supabase:**\n\n"
-        f"🔢 **إجمالي السيريالات:** {total}\n"
-        f"🟢 **السيريالات النشطة:** {active}\n"
-        f"🛑 **السيريالات المجمّدة:** {revoked}"
+        f"📊 **Supabase Licenses Statistics:**\n\n"
+        f"🔢 **Total Keys:** {total}\n"
+        f"🟢 **Active Keys:** {active}\n"
+        f"🛑 **Revoked Keys:** {revoked}"
     )
     await update.message.reply_text(msg, parse_mode="Markdown")
 
@@ -473,16 +591,21 @@ def main():
         return
 
     app = ApplicationBuilder().token(config.BOT_TOKEN).build()
-    
+
+    # User Commands
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", start))
+
+    # Admin Commands
     app.add_handler(CommandHandler("gen", admin_gen))
-    app.add_handler(CommandHandler("genserial", admin_gen))
     app.add_handler(CommandHandler("groupgen", admin_groupgen))
     app.add_handler(CommandHandler("devices", admin_devices))
     app.add_handler(CommandHandler("check", admin_check))
     app.add_handler(CommandHandler("reset", admin_reset))
     app.add_handler(CommandHandler("revoke", admin_revoke))
     app.add_handler(CommandHandler("stats", admin_stats))
+
+    # Callback Query Router
     app.add_handler(CallbackQueryHandler(button_handler))
 
     print(f"🤖 LOVAEXTREME Telegram Bot is running & connected to Supabase ({config.SUPABASE_URL})...")
