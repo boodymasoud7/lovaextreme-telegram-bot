@@ -25,7 +25,7 @@ PRICES = {
 DOWNLOAD_LINK = os.getenv("DOWNLOAD_LINK", "https://www.lovaextreme.online/download")
 
 # القناة المطلوبة للاشتراك الإجباري
-REQUIRED_CHANNEL = os.getenv("REQUIRED_CHANNEL", "@LovaExtreme_Official")
+REQUIRED_CHANNEL = os.getenv("REQUIRED_CHANNEL", "@lovaextreme")
 
 # إعدادات Supabase مع المفتاح الإداري service_role
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ysrjlpuozvemuzulsoxt.supabase.co")
