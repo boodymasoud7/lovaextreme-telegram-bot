@@ -24,6 +24,9 @@ PRICES = {
 # رابط تحميل الإكستنشن وبوابة التحميل الرسمية بالموقع
 DOWNLOAD_LINK = os.getenv("DOWNLOAD_LINK", "https://www.lovaextreme.online/download")
 
+# القناة المطلوبة للاشتراك الإجباري
+REQUIRED_CHANNEL = os.getenv("REQUIRED_CHANNEL", "@LovaExtreme_Official")
+
 # إعدادات Supabase مع المفتاح الإداري service_role
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ysrjlpuozvemuzulsoxt.supabase.co")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzcmpscHVvenZlbXV6dWxzb3h0Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjcxNDAwMSwiZXhwIjoyMTAyMjkwMDAxfQ.-q2K_K8e4M3Fg8poI9BTZzaHddAIY3o6XODieQocFmg")

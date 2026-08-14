@@ -149,6 +149,53 @@ async def show_main_menu(query, lang, user_name):
     await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 # ===========================================================================
+# Channel Subscription & Force Join Helpers
+# ===========================================================================
+
+async def check_channel_subscription(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
+    """Verifies if the user is a member of the required Telegram channel."""
+    if not config.REQUIRED_CHANNEL or is_admin(user_id):
+        return True
+    try:
+        chat = config.REQUIRED_CHANNEL.strip()
+        if not chat.startswith("@") and not chat.startswith("-100"):
+            chat = f"@{chat}"
+        member = await context.bot.get_chat_member(chat_id=chat, user_id=user_id)
+        return member.status in ['creator', 'administrator', 'member']
+    except Exception as e:
+        logging.warning(f"Channel subscription check error for user {user_id}: {e}")
+        return True # Fallback if bot is not channel admin yet
+
+async def send_force_sub_message(message_obj, lang='ar'):
+    channel_url = f"https://t.me/{config.REQUIRED_CHANNEL.lstrip('@')}"
+    if lang == 'en':
+        text = (
+            "📢 **REQUIRED CHANNEL SUBSCRIPTION**\n\n"
+            f"You must join our official Telegram channel ({config.REQUIRED_CHANNEL}) to use LOVAEXTREME bot and claim your free trial!\n\n"
+            "After joining, click **Check Subscription** below:"
+        )
+        keyboard = [
+            [InlineKeyboardButton("📢 Join Official Channel", url=channel_url)],
+            [InlineKeyboardButton("✅ Check Subscription", callback_data="check_sub")]
+        ]
+    else:
+        text = (
+            "📢 **الاشتراك الإجباري بالقناة الرسمية**\n\n"
+            f"يجب الانضمام لقناتنا الرسمية ({config.REQUIRED_CHANNEL}) لاستخدام بوت LOVAEXTREME والحصول على التجربة المجانية!\n\n"
+            "بعد الانضمام، اضغط على زر **تأكيد الاشتراك** بالأسفل:"
+        )
+        keyboard = [
+            [InlineKeyboardButton("📢 الانضمام للقناة الرسمية", url=channel_url)],
+            [InlineKeyboardButton("✅ تأكيد الاشتراك", callback_data="check_sub")]
+        ]
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    if hasattr(message_obj, "edit_text"):
+        await message_obj.edit_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+    else:
+        await message_obj.reply_text(text, reply_markup=reply_markup, parse_mode="Markdown")
+
+# ===========================================================================
 # Callback Query Button Router
 # ===========================================================================
 
@@ -171,6 +218,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     elif data == "change_lang":
         await start(update, context)
+        return
+    elif data == "check_sub":
+        lang = get_user_lang(user_id)
+        if await check_channel_subscription(context, user_id):
+            await show_main_menu(query, lang, user_name)
+        else:
+            await send_force_sub_message(query.message, lang)
         return
     elif data == "main_menu":
         lang = get_user_lang(user_id)
@@ -576,22 +630,31 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Admin command only.")
         return
 
-    res = supabase_request("licenses?select=status")
+    res = supabase_request("licenses?select=user_name,plan,created_at,status")
     if res is None:
         await update.message.reply_text("❌ Supabase connection error.")
         return
 
-    total = len(res)
-    active = sum(1 for r in res if r.get('status') == 'active')
-    revoked = sum(1 for r in res if r.get('status') == 'revoked')
+    total_keys = len(res)
+    trials = [r for r in res if r.get('plan') == 'trial_15m' or 'trial' in str(r.get('plan')).lower()]
+    unique_tg_users = set(r.get('user_name') for r in trials if r.get('user_name'))
+    paid_keys = [r for r in res if r.get('plan') != 'trial_15m' and 'trial' not in str(r.get('plan')).lower()]
 
     msg = (
-        f"📊 **Supabase Licenses Statistics:**\n\n"
-        f"🔢 **Total Keys:** {total}\n"
-        f"🟢 **Active Keys:** {active}\n"
-        f"🛑 **Revoked Keys:** {revoked}"
+        f"📊 **تقارير وإحصائيات مستخدمي البوت الإجمالية:**\n\n"
+        f"👥 **عدد الأشخاص الذين طلبوا تجربة مجانية:** {len(unique_tg_users)} مستخدم\n"
+        f"🎁 **إجمالي التجارب المجانية المصدرة:** {len(trials)} تجربة\n"
+        f"💳 **إجمالي الاشتراكات المدفوعة:** {len(paid_keys)} سيريال\n"
+        f"🔢 **إجمالي السيريالات المسجلة بالداتابيز:** {total_keys}\n\n"
+        f"📋 **آخر مستخدمين طلبوا تجربة:**\n"
     )
+    for r in list(trials)[-7:]:
+        msg += f"• `{r.get('user_name')}` ({r.get('status')})\n"
+
     await update.message.reply_text(msg, parse_mode="Markdown")
+
+async def admin_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await admin_stats(update, context)
 
 # ===========================================================================
 # Main Function
@@ -616,6 +679,7 @@ def main():
     app.add_handler(CommandHandler("reset", admin_reset))
     app.add_handler(CommandHandler("revoke", admin_revoke))
     app.add_handler(CommandHandler("stats", admin_stats))
+    app.add_handler(CommandHandler("users", admin_users))
 
     # Callback Query Router
     app.add_handler(CallbackQueryHandler(button_handler))
