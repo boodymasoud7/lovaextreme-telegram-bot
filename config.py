@@ -8,10 +8,10 @@ ADMIN_IDS = [int(id_str) for id_str in os.getenv("ADMIN_IDS", "7268672117").spli
 
 # معلومات وسائل الدفع
 PAYMENT_INFO = {
-    "VODAFONE_CASH": os.getenv("VODAFONE_CASH", "010XXXXXXXX"),
-    "INSTAPAY": os.getenv("INSTAPAY", "username@instapay"),
+    "VODAFONE_CASH": os.getenv("VODAFONE_CASH", "01099666940"),
+    "INSTAPAY": os.getenv("INSTAPAY", "01099666940"),
     "BINANCE_PAY": os.getenv("BINANCE_PAY", "USDT (TRC20): TXXXXXXXXXXXXXXXXXXXXXXXXX"),
-    "ADMIN_CONTACT": os.getenv("ADMIN_CONTACT", "@LovaExtreme_Admin")
+    "ADMIN_CONTACT": os.getenv("ADMIN_CONTACT", "@boodymasoud")
 }
 
 # أسعار الباقات بالدولار / الجنيه المصري

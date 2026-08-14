@@ -359,11 +359,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data == "support":
         if lang == 'en':
-            text = f"💬 For direct human support & assistance:\n👉 {config.PAYMENT_INFO['ADMIN_CONTACT']}"
-            keyboard = [[InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]]
+            text = f"💬 **HUMAN SUPPORT & ASSISTANCE:**\n\nDirect contact with LOVAEXTREME Founder & Admin:\n👉 {config.PAYMENT_INFO['ADMIN_CONTACT']}"
+            keyboard = [
+                [InlineKeyboardButton("💬 Open Chat with Admin (@boodymasoud)", url="https://t.me/boodymasoud")],
+                [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
+            ]
         else:
-            text = f"💬 للدعم الفني والتواصل المباشر مع إدارة LOVAEXTREME:\n👉 {config.PAYMENT_INFO['ADMIN_CONTACT']}"
-            keyboard = [[InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="main_menu")]]
+            text = f"💬 **الدعم الفني والتواصل المباشر:**\n\nتواصل مباشر مع مؤسس وإدارة LOVAEXTREME:\n👉 {config.PAYMENT_INFO['ADMIN_CONTACT']}"
+            keyboard = [
+                [InlineKeyboardButton("💬 فتح شات مباشر مع الأدمن (@boodymasoud)", url="https://t.me/boodymasoud")],
+                [InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="main_menu")]
+            ]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
 
 # ===========================================================================
