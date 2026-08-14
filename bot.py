@@ -154,7 +154,7 @@ async def show_main_menu(query, lang, user_name):
 
 async def check_channel_subscription(context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
     """Verifies if the user is a member of the required Telegram channel."""
-    if not config.REQUIRED_CHANNEL or is_admin(user_id):
+    if not config.REQUIRED_CHANNEL:
         return True
     try:
         chat = config.REQUIRED_CHANNEL.strip()
@@ -210,10 +210,18 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Handle Language Selection
     if data == "lang_en":
         set_user_lang(user_id, 'en')
+        lang = 'en'
+        if not await check_channel_subscription(context, user_id):
+            await send_force_sub_message(query.message, lang)
+            return
         await show_main_menu(query, 'en', user_name)
         return
     elif data == "lang_ar":
         set_user_lang(user_id, 'ar')
+        lang = 'ar'
+        if not await check_channel_subscription(context, user_id):
+            await send_force_sub_message(query.message, lang)
+            return
         await show_main_menu(query, 'ar', user_name)
         return
     elif data == "change_lang":
@@ -228,10 +236,19 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     elif data == "main_menu":
         lang = get_user_lang(user_id)
+        if not await check_channel_subscription(context, user_id):
+            await send_force_sub_message(query.message, lang)
+            return
         await show_main_menu(query, lang, user_name)
         return
 
     lang = get_user_lang(user_id)
+
+    # Force Sub Enforcement for feature buttons
+    if data in ["claim_trial", "download", "buy", "faq", "support"]:
+        if not await check_channel_subscription(context, user_id):
+            await send_force_sub_message(query.message, lang)
+            return
 
     # 1. Claim Trial
     if data == "claim_trial":
