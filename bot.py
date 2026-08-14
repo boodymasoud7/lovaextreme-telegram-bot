@@ -318,7 +318,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Enter your key on the site to download your build."
             )
             keyboard = [
-                [InlineKeyboardButton("🌐 Open Website Download Portal", url="https://www.lovaextreme.online")],
+                [InlineKeyboardButton("🌐 Open Website Download Portal", url="https://www.lovaextreme.online/download")],
                 [InlineKeyboardButton("🔙 Main Menu", callback_data="main_menu")]
             ]
         else:
@@ -329,7 +329,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "أدخل السيريال في الموقع ليبدأ التحميل تلقائياً!"
             )
             keyboard = [
-                [InlineKeyboardButton("🌐 فتح بوابة التحميل بالموقع", url="https://www.lovaextreme.online")],
+                [InlineKeyboardButton("🌐 فتح بوابة التحميل بالموقع", url="https://www.lovaextreme.online/download")],
                 [InlineKeyboardButton("🔙 القائمة الرئيسية", callback_data="main_menu")]
             ]
         await query.message.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")

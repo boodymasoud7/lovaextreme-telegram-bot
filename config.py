@@ -22,7 +22,7 @@ PRICES = {
 }
 
 # رابط تحميل الإكستنشن وبوابة التحميل الرسمية بالموقع
-DOWNLOAD_LINK = os.getenv("DOWNLOAD_LINK", "https://www.lovaextreme.online")
+DOWNLOAD_LINK = os.getenv("DOWNLOAD_LINK", "https://www.lovaextreme.online/download")
 
 # إعدادات Supabase مع المفتاح الإداري service_role
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ysrjlpuozvemuzulsoxt.supabase.co")
